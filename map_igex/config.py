@@ -1,4 +1,6 @@
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 # 基礎路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,4 +35,31 @@ API_RELOAD = True
 MIN_VALUE = 300
 MAX_VALUE = 5000
 ERROR_THRESHOLD = 0.5
-CACHE_ENABLED = True 
+CACHE_ENABLED = True
+
+# 日誌配置
+def setup_logger(name, log_file, level=logging.INFO):
+    """設置日誌記錄器"""
+    formatter = logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    handler = RotatingFileHandler(
+        log_file,
+        maxBytes=10*1024*1024,  # 10MB
+        backupCount=5,
+        encoding='utf-8'
+    )
+    handler.setFormatter(formatter)
+    
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    
+    return logger
+
+# 創建日誌記錄器
+api_logger = setup_logger('api', get_log_file('api'))
+split_logger = setup_logger('split', get_log_file('split'))
+error_logger = setup_logger('error', get_log_file('error')) 

@@ -11,38 +11,75 @@
 - RESTful API接口
 - 自動API文檔
 
-## 安裝
+## 系統要求
+
+- Python 3.8+
+- Windows/Linux/MacOS
+
+## 安裝步驟
 
 1. 克隆倉庫：
 ```bash
-git clone https://github.com/your-username/value-splitting-service.git
-cd value-splitting-service
+git clone https://github.com/iiooiioo888/cs_pay.git
+
 ```
 
-2. 安裝依賴：
+2. 創建並激活虛擬環境（可選但推薦）：
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux/MacOS
+python3 -m venv venv
+source venv/bin/activate
+```
+
+3. 安裝依賴：
 ```bash
 pip install -r requirements.txt
 ```
 
-## 使用方法
+4. 準備數據目錄：
+```bash
+# Windows
+mkdir data\raw data\processed data\logs
+
+# Linux/MacOS
+mkdir -p data/raw data/processed data/logs
+```
+
+## 配置
+
+服務配置位於 `config.py`，可以根據需要修改以下參數：
+
+- `API_HOST`: API 服務監聽地址（默認: "0.0.0.0"）
+- `API_PORT`: API 服務端口（默認: 8000）
+- `API_RELOAD`: 是否啟用熱重載（默認: True）
+- `MIN_VALUE`: 最小拆分值（默認: 300）
+- `MAX_VALUE`: 最大拆分值（默認: 5000）
+
+## 運行服務
 
 1. 啟動服務：
 ```bash
-python api.py
+python run.py
 ```
 
-2. 訪問服務：
+服務啟動後可以通過以下地址訪問：
+
 - API文檔：http://localhost:8000/docs
 - 健康檢查：http://localhost:8000/
 - 拆分請求：http://localhost:8000/split/{target_value}
 
-## API端點
+## API使用說明
 
 ### GET /split/{target_value}
+
 將目標值拆分並返回QR碼。
 
 參數：
-- target_value (float): 要拆分的目標值（300-5000）
+- `target_value` (float): 要拆分的目標值（300-5000）
 
 返回：
 - PNG格式的QR碼圖片
@@ -52,11 +89,31 @@ python api.py
   - 總和
   - 誤差
 
+示例請求：
+```bash
+curl http://localhost:8000/split/654 -o result.png
+```
+
 ## 錯誤處理
 
-- 400 Bad Request: 目標值超出範圍
+服務會返回以下錯誤碼：
+
+- 400 Bad Request: 目標值超出範圍（300-5000）
 - 400 Bad Request: 無法完成拆分
 - 404 Not Found: 未找到匹配結果
+- 500 Internal Server Error: 服務器內部錯誤
+
+## 數據文件
+
+服務需要在 `data/raw/` 目錄下準備以下格式的CSV文件：
+
+```csv
+name,value,url
+item1,95.5,http://example.com/item1
+item2,85.3,http://example.com/item2
+```
+
+文件命名規則：`less_than_{N}.csv`，其中 N 為 10 的倍數（10-490）。
 
 ## 開發環境
 
