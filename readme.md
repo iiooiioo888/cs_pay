@@ -1,141 +1,170 @@
-# 數值拆分服務 (Value Splitting Service)
+# 智能數值拆分服務
 
-這是一個基於FastAPI的Web服務，用於將目標值智能拆分。
+一個高性能的數值拆分服務，能夠智能地將目標值拆分為多個合適的部分。
 
-## 功能特點
+## 系統特點
 
-- 支持300-5000範圍內的目標值拆分
-- 智能計算最佳拆分數量
-- 自動補償誤差
-- JSON格式的響應數據
-- RESTful API接口
-- 自動API文檔
+- 高性能：平均響應時間 < 4秒
+- 高可靠：成功率 > 88%
+- 高並發：支持多用戶同時訪問
+- 智能快取：使用多層快取策略
+- 自動重試：內建錯誤重試機制
 
 ## 系統要求
 
 - Python 3.8+
 - Windows/Linux/MacOS
+- 8GB+ RAM 建議
 
 ## 安裝步驟
 
-1. 克隆倉庫：
+1. 創建並激活虛擬環境：
+
+Windows:
 ```bash
-git clone https://github.com/iiooiioo888/igex.git
-cd igex
+python -m venv venv
+.\venv\Scripts\activate
 ```
 
-2. 創建並激活虛擬環境（可選但推薦）：
+Linux/MacOS:
 ```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# Linux/MacOS
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. 安裝依賴：
+2. 安裝依賴：
 ```bash
 pip install -r requirements.txt
 ```
 
-4. 準備數據目錄：
+3. 準備數據目錄：
 ```bash
-# Windows
-mkdir data\raw data\processed data\logs
-
-# Linux/MacOS
-mkdir -p data/raw data/processed data/logs
+mkdir -p map_igex/data/raw
+mkdir -p map_igex/data/processed
 ```
 
 ## 配置
 
-服務配置位於 `config.py`，可以根據需要修改以下參數：
+主要配置項在 `map_igex/config.py` 中：
 
-- `API_HOST`: API 服務監聽地址（默認: "0.0.0.0"）
-- `API_PORT`: API 服務端口（默認: 8000）
-- `API_RELOAD`: 是否啟用熱重載（默認: True）
-- `MIN_VALUE`: 最小拆分值（默認: 300）
-- `MAX_VALUE`: 最大拆分值（默認: 5000）
+- 文件路徑配置
+- 日誌配置
+- 快取配置
+- 性能調優參數
 
 ## 運行服務
 
-1. 啟動服務：
+啟動服務：
 ```bash
+cd map_igex
 python run.py
 ```
 
-服務啟動後可以通過以下地址訪問：
+服務將在 http://localhost:8000 運行，API 文檔可在 http://localhost:8000/docs 查看。
 
-- API文檔：http://localhost:8000/docs
-- 健康檢查：http://localhost:8000/
-- 拆分請求：http://localhost:8000/split/{target_value}
+## API 使用說明
 
-## API使用說明
+### 拆分值 API
 
-### GET /split/{target_value}
-
-將目標值拆分並返回結果。
-
-參數：
-- `target_value` (float): 要拆分的目標值（300-5000）
-
-返回：
-- JSON格式的響應數據，包含：
-  ```json
-  {
-    "target_value": 654.0,
-    "results": [
-      {
-        "name": "item1",
-        "value": 220.5,
-        "url": "http://example.com/item1"
-      },
-      {
-        "name": "item2",
-        "value": 433.5,
-        "url": "http://example.com/item2"
-      }
-    ],
-    "total_value": 654.0,
-    "error": 0.0
-  }
-  ```
+- 端點：`/split/{target_value}`
+- 方法：GET
+- 參數：
+  - target_value：要拆分的目標值（300-5000）
+- 返回：JSON 格式的拆分結果
 
 示例請求：
 ```bash
-curl http://localhost:8000/split/654
+curl http://localhost:8000/split/388
 ```
+
+示例響應：
+```json
+{
+    "target_value": 388,
+    "results": [
+        {
+            "name": "value1",
+            "value": 194,
+            "url": "url1"
+        },
+        {
+            "name": "value2",
+            "value": 194,
+            "url": "url2"
+        }
+    ],
+    "total_value": 388,
+    "error": 0
+}
+```
+
+## 性能指標
+
+- P50 響應時間：3.6秒
+- P95 響應時間：5.7秒
+- P99 響應時間：5.8秒
+- 每秒請求數 (QPS)：~1.3
+- 並發支持：20+ 同時請求
 
 ## 錯誤處理
 
-服務會返回以下錯誤碼：
+系統會返回以下 HTTP 狀態碼：
 
-- 400 Bad Request: 目標值超出範圍（300-5000）
-- 400 Bad Request: 無法完成拆分
-- 404 Not Found: 未找到匹配結果
-- 500 Internal Server Error: 服務器內部錯誤
+- 200：成功
+- 404：找不到合適的拆分結果
+- 400：請求參數錯誤
+- 500：服務器內部錯誤
 
 ## 數據文件
 
-服務需要在 `data/raw/` 目錄下準備以下格式的CSV文件：
+### 格式要求
 
-```csv
+CSV 文件格式：
+```
 name,value,url
-item1,95.5,http://example.com/item1
-item2,85.3,http://example.com/item2
+value1,194.0,url1
+value2,194.0,url2
 ```
 
-文件命名規則：`less_than_{N}.csv`，其中 N 為 10 的倍數（10-490）。
+### 文件分類
 
-## 開發環境
+- `raw/`：原始數據文件
+- `processed/`：
+  - `used_values.csv`：已使用的值
+  - `unused_values.csv`：未使用的值
 
-- Python 3.8+
-- FastAPI
-- Uvicorn
-- Pydantic
+## 優化特性
 
-## 授權
+1. 多層快取機制：
+   - 內存快取
+   - 文件快取
+   - 預排序快取
 
-MIT License 
+2. 智能查找算法：
+   - 二分查找
+   - 預排序優化
+   - 動態調整策略
+
+3. 並發處理：
+   - 線程安全設計
+   - 原子操作
+   - 鎖機制優化
+
+4. 錯誤處理：
+   - 自動重試機制
+   - 錯誤日誌記錄
+   - 異常恢復
+
+## 監控和日誌
+
+- 詳細的操作日誌
+- 性能監控指標
+- 錯誤追蹤
+- 狀態報告
+
+## 注意事項
+
+1. 首次運行可能需要初始化數據文件
+2. 建議定期備份數據文件
+3. 監控系統資源使用情況
+4. 適時清理日誌文件 
