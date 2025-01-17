@@ -1,6 +1,5 @@
 import os
-import logging
-from logging.handlers import RotatingFileHandler
+from logger_config import config_logger
 
 # 基礎路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -13,7 +12,12 @@ LOGS_DIR = os.path.join(DATA_DIR, 'logs')
 
 # 文件路徑
 def get_raw_data_file(i):
-    return os.path.join(RAW_DATA_DIR, f'less_than_{i}.csv')
+    """獲取原始數據文件路徑"""
+    base_dir = os.path.dirname(__file__)
+    file_path = os.path.join(base_dir, 'data', 'raw', f'less_than_{i}.csv')
+    if not os.path.exists(file_path):
+        config_logger.warning(f"文件不存在: {file_path}")
+    return file_path
 
 def get_processed_file(name):
     return os.path.join(PROCESSED_DATA_DIR, f'{name}.csv')
@@ -35,31 +39,4 @@ API_RELOAD = True
 MIN_VALUE = 300
 MAX_VALUE = 5000
 ERROR_THRESHOLD = 0.5
-CACHE_ENABLED = True
-
-# 日誌配置
-def setup_logger(name, log_file, level=logging.INFO):
-    """設置日誌記錄器"""
-    formatter = logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    
-    handler = RotatingFileHandler(
-        log_file,
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5,
-        encoding='utf-8'
-    )
-    handler.setFormatter(formatter)
-    
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
-    
-    return logger
-
-# 創建日誌記錄器
-api_logger = setup_logger('api', get_log_file('api'))
-split_logger = setup_logger('split', get_log_file('split'))
-error_logger = setup_logger('error', get_log_file('error')) 
+CACHE_ENABLED = True 

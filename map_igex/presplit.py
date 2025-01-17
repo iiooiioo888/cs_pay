@@ -3,33 +3,17 @@ import json
 import time
 import random
 from typing import Dict, List, Tuple
-import logging
-from logging.handlers import RotatingFileHandler
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import s
 from config import get_raw_data_file
-
-# 配置預分拆日誌
-presplit_logger = logging.getLogger('presplit')
-presplit_logger.setLevel(logging.INFO)
-
-# 創建日誌目錄
-log_dir = os.path.join(os.path.dirname(__file__), 'logs')
-os.makedirs(log_dir, exist_ok=True)
-
-# 設置日誌處理器
-log_file = os.path.join(log_dir, 'presplit.log')
-handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5, encoding='utf-8')
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-presplit_logger.addHandler(handler)
+from logger_config import presplit_logger, logger
 
 class PreSplitManager:
     def __init__(self):
         self.cache_file = os.path.join(os.path.dirname(__file__), 'data', 'processed', 'presplit_cache.json')
         self.lock = threading.Lock()
-        self.cache: Dict[float, List[List[Dict[str, str | float]]]] = {}
+        self.cache: Dict[str, List[List[Dict[str, str | float]]]] = {}  # 使用字符串作為鍵
         self.load_cache()
         self.running = False
         self._worker_thread = None
@@ -61,9 +45,16 @@ class PreSplitManager:
         with self.lock:
             # 將目標值轉換為兩位小數
             target_value = round(float(target_value), 2)
-            results = self.cache.get(str(target_value), [])
+            target_key = str(target_value)
+            results = self.cache.get(target_key, [])
             if results:
                 presplit_logger.info(f"命中預分拆快取: {target_value} -> {results[0]}")
+                # 命中快取時，刪除該記錄
+                if target_key in self.cache:
+                    del self.cache[target_key]
+                    # 保存更新後的快取
+                    self.save_cache()
+                    presplit_logger.info(f"已刪除快取記錄: {target_value}")
             return results
     
     def add_split(self, target_value: float, splits: List[Dict[str, str | float]]):
@@ -168,37 +159,40 @@ class PreSplitManager:
         """後台預分拆任務的主循環"""
         while self.running:
             try:
-                # 生成一個隨機目標值（兩位小數）
-                target_value = round(random.uniform(300, 5000), 2)
-                
-                # 檢查是否已有足夠的分拆組合
-                existing_splits = self.get_split(target_value)
-                if len(existing_splits) >= 5:  # 每個目標值最多保存5個組合
-                    continue
-                
-                # 生成新的分拆組合
-                new_splits = self.generate_splits(target_value)
-                if new_splits:
-                    # 驗證總和不超過目標值且誤差不超過0.5
-                    for split_combination in new_splits:
-                        total = round(sum(item["value"] for item in split_combination), 2)
-                        error = round(target_value - total, 2)
-                        if 0 <= error <= 0.5:  # 嚴格限制誤差範圍
-                            # 確保所有值都是兩位小數
-                            for item in split_combination:
-                                item["value"] = round(float(item["value"]), 2)
-                            self.add_split(target_value, split_combination)
-                            presplit_logger.info(f"成功添加預分拆組合: {target_value} -> 總和: {total}, 誤差: {error}")
-                            break
-                        else:
-                            presplit_logger.debug(f"跳過誤差過大的組合: {target_value} -> 總和: {total}, 誤差: {error}")
+                # 檢查所有100的倍數是否都有足夠的預分拆組合
+                for target_value in range(300, 5100, 100):
+                    target_value = round(float(target_value), 2)
                     
-                    # 每生成10個新組合就保存一次
-                    if len(self.cache) % 10 == 0:
-                        self.save_cache()
+                    # 檢查是否已有足夠的分拆組合
+                    existing_splits = self.get_split(target_value)
+                    if len(existing_splits) >= 5:  # 每個目標值最多保存5個組合
+                        continue
+                    
+                    # 生成新的分拆組合
+                    new_splits = self.generate_splits(target_value)
+                    if new_splits:
+                        # 驗證總和不超過目標值且誤差不超過0.5
+                        for split_combination in new_splits:
+                            total = round(sum(item["value"] for item in split_combination), 2)
+                            error = round(target_value - total, 2)
+                            if 0 <= error <= 0.5:  # 嚴格限制誤差範圍
+                                # 確保所有值都是兩位小數
+                                for item in split_combination:
+                                    item["value"] = round(float(item["value"]), 2)
+                                self.add_split(target_value, split_combination)
+                                presplit_logger.info(f"成功添加預分拆組合: {target_value} -> 總和: {total}, 誤差: {error}")
+                                break
+                            else:
+                                presplit_logger.debug(f"跳過誤差過大的組合: {target_value} -> 總和: {total}, 誤差: {error}")
+                    
+                    # 每生成一個新組合就保存一次
+                    self.save_cache()
+                    
+                    # 休眠一小段時間，避免CPU使用率過高
+                    time.sleep(0.5)
                 
-                # 休眠一小段時間
-                time.sleep(0.1)
+                # 完成一輪檢查後，休眠較長時間
+                time.sleep(60)
                 
             except Exception as e:
                 presplit_logger.error(f"預分拆任務執行錯誤: {str(e)}")
@@ -222,10 +216,10 @@ class PreSplitManager:
                 300.00,    # 最小值
                 5000.00,   # 最大值
                 1000.00,   # 中等值
-                3881.00,   # 特定值
-                2773.00,   # 特定值
-                4999.00,   # 接近最大值
-                301.00,    # 接近最小值
+                3900.00,   # 特定值
+                2800.00,   # 特定值
+                4900.00,   # 接近最大值
+                400.00,    # 接近最小值
                 2500.00,   # 中間值
             ]
         

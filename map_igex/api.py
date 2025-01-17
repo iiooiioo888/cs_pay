@@ -2,8 +2,9 @@ from fastapi import FastAPI, HTTPException, Request
 from typing import List, Dict
 from pydantic import BaseModel
 import s  # 直接導入同目錄下的s.py
-from config import get_raw_data_file, api_logger, error_logger  # 導入配置和日誌記錄器
+from config import get_raw_data_file  # 導入配置
 from presplit import presplit_manager  # 導入預分拆管理器
+from logger_config import api_logger, error_logger  # 導入日誌記錄器
 import time
 import json
 
@@ -119,7 +120,6 @@ async def split_value(target_value: float, retry_count: int = 0):
             
             # 預先加載文件內容
             file_contents = s.load_file_contents(file_paths)
-            s.load_file_contents.cache['contents'] = file_contents
             
             # 計算拆分數量
             num_parts = s.calculate_optimal_parts(target_value)
