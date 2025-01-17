@@ -25,7 +25,7 @@ def run_stress_test(num_requests=1000, concurrent_requests=50):
     
     # 準備測試數據
     test_values = [
-        random.uniform(300, 5000) for _ in range(num_requests)
+        int(random.uniform(300, 5000)) for _ in range(num_requests)
     ]
     
     success_count = 0
@@ -95,9 +95,9 @@ def run_stress_test(num_requests=1000, concurrent_requests=50):
 if __name__ == "__main__":
     # 執行三輪測試，逐步增加負載
     test_configs = [
-        (50, 5),     # 輕負載測試
-        (100, 10),   # 中負載測試
-        (200, 20)    # 重負載測試
+        (300, 3),     # 輕負載測試
+        (500, 5),   # 中負載測試
+        (800, 8)    # 重負載測試
     ]
     
     for num_requests, concurrent_requests in test_configs:
