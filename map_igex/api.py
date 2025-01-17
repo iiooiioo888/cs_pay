@@ -80,6 +80,8 @@ async def get_presplit_stats():
 @app.get("/split/{target_value}", response_model=SplitResponse)
 async def split_value(target_value: float, retry_count: int = 0):
     """處理拆分請求並返回結果"""
+    # 將目標值轉換為整數
+    target_value = int(target_value)
     api_logger.info(f"Processing split request for target_value: {target_value}, retry: {retry_count}")
     
     try:
@@ -105,7 +107,7 @@ async def split_value(target_value: float, retry_count: int = 0):
             api_logger.info(f"Found pre-split result for {target_value}")
             # 直接使用預分拆的結果
             results = [Result(**item) for item in presplit_results[0]]
-            total_value = sum(r.value for r in results)
+            total_value = int(sum(r.value for r in results))
             error = target_value - total_value
             api_logger.info(f"Using pre-split result with total: {total_value}, error: {error}")
         else:
@@ -133,6 +135,8 @@ async def split_value(target_value: float, retry_count: int = 0):
                     detail=error_msg
                 )
             
+            # 將所有部分轉換為整數
+            parts = tuple(int(p) for p in parts)
             api_logger.info(f"Split values: {parts}")
             
             # 查找匹配值
@@ -143,7 +147,7 @@ async def split_value(target_value: float, retry_count: int = 0):
                 if result:
                     results.append(Result(
                         name=result[0],
-                        value=result[1],
+                        value=int(result[1]),  # 確保值為整數
                         url=result[2]
                     ))
                     api_logger.info(f"Found match for {part}: {result}")
@@ -159,7 +163,7 @@ async def split_value(target_value: float, retry_count: int = 0):
                 )
             
             # 計算總和與誤差
-            total_value = sum(r.value for r in results)
+            total_value = int(sum(r.value for r in results))
             error = target_value - total_value
             api_logger.info(f"Initial total: {total_value}, error: {error}")
             
@@ -170,16 +174,16 @@ async def split_value(target_value: float, retry_count: int = 0):
                 return await split_value(target_value, retry_count + 1)
             
             # 如果誤差過大，嘗試補償（只在總和小於目標值時）
-            if error > 0.5:
+            if error > 0:  # 對於整數，只要有誤差就嘗試補償
                 api_logger.info(f"Attempting to compensate error: {error}")
                 compensation = s.find_compensation_value(error, file_paths)
                 if compensation:
                     # 檢查補償後的總和是否會超過目標值
-                    new_total = total_value + compensation[1]
+                    new_total = total_value + int(compensation[1])
                     if new_total <= target_value:
                         results.append(Result(
                             name=compensation[0],
-                            value=compensation[1],
+                            value=int(compensation[1]),  # 確保值為整數
                             url=compensation[2]
                         ))
                         total_value = new_total
@@ -194,7 +198,7 @@ async def split_value(target_value: float, retry_count: int = 0):
                 presplit_manager.add_split(target_value, [
                     {
                         "name": r.name,
-                        "value": r.value,
+                        "value": int(r.value),  # 確保值為整數
                         "url": r.url
                     } for r in results
                 ])
