@@ -55,11 +55,19 @@ async def root():
     return {"message": "數值拆分服務已啟動"}
 
 @app.get("/split/{target_value}", response_model=SplitResponse)
-async def split_value(target_value: float):
+async def split_value(target_value: float, retry_count: int = 0):
     """處理拆分請求並返回結果"""
-    api_logger.info(f"Processing split request for target_value: {target_value}")
+    api_logger.info(f"Processing split request for target_value: {target_value}, retry: {retry_count}")
     
     try:
+        if retry_count >= 8:  # 限制最大重試次數為 8 次
+            error_msg = f"達到最大重試次數 (8)"
+            api_logger.warning(error_msg)
+            raise HTTPException(
+                status_code=400,
+                detail=error_msg
+            )
+
         if not (300 <= target_value <= 5000):
             error_msg = f"目標值 {target_value} 超出範圍 (300-5000)"
             api_logger.warning(error_msg)
@@ -120,27 +128,31 @@ async def split_value(target_value: float):
         error = target_value - total_value
         api_logger.info(f"Initial total: {total_value}, error: {error}")
         
-        # 如果誤差過大，嘗試補償
+        # 檢查總和是否超過目標值
+        if total_value > target_value:
+            api_logger.warning(f"Total value {total_value} exceeds target {target_value}, retrying...")
+            # 遞迴調用自身進行重試，增加重試計數
+            return await split_value(target_value, retry_count + 1)
+        
+        # 如果誤差過大，嘗試補償（只在總和小於目標值時）
         if error > 0.5:
             api_logger.info(f"Attempting to compensate error: {error}")
             compensation = s.find_compensation_value(error, file_paths)
-            if not compensation:
-                error_msg = f"無法找到合適的補償值來修正誤差 {error}"
-                api_logger.warning(error_msg)
-                raise HTTPException(
-                    status_code=422,
-                    detail=error_msg
-                )
-            
-            results.append(Result(
-                name=compensation[0],
-                value=compensation[1],
-                url=compensation[2]
-            ))
-            total_value += compensation[1]
-            error = target_value - total_value
-            api_logger.info(f"Added compensation: {compensation}")
-            api_logger.info(f"Final total: {total_value}, error: {error}")
+            if compensation:
+                # 檢查補償後的總和是否會超過目標值
+                new_total = total_value + compensation[1]
+                if new_total <= target_value:
+                    results.append(Result(
+                        name=compensation[0],
+                        value=compensation[1],
+                        url=compensation[2]
+                    ))
+                    total_value = new_total
+                    error = target_value - total_value
+                    api_logger.info(f"Added compensation: {compensation}")
+                    api_logger.info(f"Final total: {total_value}, error: {error}")
+                else:
+                    api_logger.warning(f"Skipped compensation as it would exceed target value")
         
         # 準備響應數據
         response_data = SplitResponse(

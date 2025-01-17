@@ -31,13 +31,13 @@ def split_target_value(target_value, num_parts=4, retry_count=0):
     base_value = target_value / num_parts
     
     # 如果平均值太小，減少拆分數
-    if base_value < min_value * 1.2:
+    if base_value < min_value * 1.1:  # 稍微放寬限制
         if num_parts > 2:
             return split_target_value(target_value, num_parts - 1, retry_count + 1)
         return None
     
     # 如果平均值太大，增加拆分數
-    if base_value > max_value * 0.9 and num_parts < 4:
+    if base_value > max_value * 0.95 and num_parts < 8:  # 放寬最大拆分數限制
         return split_target_value(target_value, num_parts + 1, retry_count + 1)
     
     # 使用動態規劃找到最佳的第一個值
@@ -46,10 +46,10 @@ def split_target_value(target_value, num_parts=4, retry_count=0):
         min_diff = float('inf')
         target_remaining = target_value
         
-        # 在合理範圍內尋找最佳的第一個值
+        # 在合理範圍內尋找最佳的第一個值（確保略小於目標值）
         for first_value in range(
-            max(min_value, int(base_value * 0.8)),
-            min(max_value, int(base_value * 1.2)) + 1
+            max(min_value, int(base_value * 0.85)),  # 調整下限
+            min(max_value, int(base_value * 0.98)) + 1  # 調整上限
         ):
             remaining = target_remaining - first_value
             if remaining < min_value * (num_parts - 1):
@@ -71,8 +71,9 @@ def split_target_value(target_value, num_parts=4, retry_count=0):
         parts_left = num_parts - 1
         
         while parts_left > 1:
-            # 計算當前的理想值
+            # 計算當前的理想值（確保略小於平均值）
             current_base = remaining / parts_left
+            current_base = current_base * 0.98  # 調整縮減比例
             
             # 在合理範圍內尋找最接近的值
             current_value = min(
@@ -80,7 +81,7 @@ def split_target_value(target_value, num_parts=4, retry_count=0):
                 max(
                     min_value,
                     min(
-                        math.ceil(current_base),
+                        math.floor(current_base + 0.5),  # 使用四捨五入
                         remaining - (min_value * (parts_left - 1))
                     )
                 )
@@ -114,30 +115,26 @@ def split_target_value(target_value, num_parts=4, retry_count=0):
     
     # 驗證結果
     total = sum(result)
-    if abs(total - target_value) <= 1.0:
+    if total <= target_value and (target_value - total) <= 2.0:  # 稍微放寬誤差限制
         split_logger.info(f"Successfully split: {result}")
         return tuple(result)
     
     # 如果總和不正確，嘗試調整
     diff = target_value - total
-    if abs(diff) <= 2.0:
+    if diff > 0 and diff <= 3.0:  # 放寬調整範圍
         # 嘗試調整值
         for i in range(len(result)):
             if diff > 0 and result[i] < max_value:
                 adjustment = min(1, diff)
-                result[i] = math.ceil(result[i] + adjustment)
+                result[i] = math.floor(result[i] + adjustment + 0.5)  # 使用四捨五入
                 diff -= adjustment
-            elif diff < 0 and result[i] > min_value:
-                adjustment = min(1, -diff)
-                result[i] = math.floor(result[i] - adjustment)
-                diff += adjustment
             
             if abs(diff) <= 0.01:
                 break
         
         # 再次檢查總和
         total = sum(result)
-        if abs(total - target_value) <= 1.0:
+        if total <= target_value and (target_value - total) <= 2.0:
             split_logger.info(f"Successfully split after adjustment: {result}")
             return tuple(result)
     

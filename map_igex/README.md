@@ -39,13 +39,13 @@ pip install -r requirements.txt
 
 3. 準備數據目錄：
 ```bash
-mkdir -p map_igex/data/raw
-mkdir -p map_igex/data/processed
+mkdir -p data/raw
+mkdir -p data/processed
 ```
 
 ## 配置
 
-主要配置項在 `map_igex/config.py` 中：
+主要配置項在 `config.py` 中：
 
 - 文件路徑配置
 - 日誌配置
@@ -56,7 +56,6 @@ mkdir -p map_igex/data/processed
 
 啟動服務：
 ```bash
-cd map_igex
 python run.py
 ```
 
@@ -70,6 +69,9 @@ python run.py
 - 方法：GET
 - 參數：
   - target_value：要拆分的目標值（300-5000）
+- 業務邏輯限制：
+  - 拆分結果的總和不能超過目標值
+  - 建議總和略小於目標值
 - 返回：JSON 格式的拆分結果
 
 示例請求：
@@ -128,8 +130,8 @@ value2,194.0,url2
 
 ### 文件分類
 
-- `raw/`：原始數據文件
-- `processed/`：
+- `data/raw/`：原始數據文件
+- `data/processed/`：
   - `used_values.csv`：已使用的值
   - `unused_values.csv`：未使用的值
 
@@ -157,7 +159,7 @@ value2,194.0,url2
 
 ## 監控和日誌
 
-- 詳細的操作日誌
+- 詳細的操作日誌 (`logs/`)
 - 性能監控指標
 - 錯誤追蹤
 - 狀態報告
